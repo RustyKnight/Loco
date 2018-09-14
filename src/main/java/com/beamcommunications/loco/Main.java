@@ -12,6 +12,10 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import org.apache.poi.ss.usermodel.Cell;
@@ -26,6 +30,11 @@ import org.apache.poi.ss.usermodel.WorkbookFactory;
  */
 public class Main {
 
+	public static int DESCRIPTION_COLUMN = 0;
+	public static int COMMENT_COLUMN = 1;
+	public static int IOS_KEY_COLUMN = 2;
+	public static int ANDROID_KEY_COLUMN = 3;
+	
 	public static void main(String[] args) throws IOException {
 		new Main();
 	}
@@ -36,8 +45,6 @@ public class Main {
 	public Main() throws IOException {
 		workbook = WorkbookFactory.create(new File("Loco.xlsx"));
 		sheet = workbook.getSheetAt(0);
-		int iosKeysColumn = 2;
-		int androidKeysColumn = 3;
 		int languagesStartColumn = 4;
 		int languagesEndColumn = languagesStartColumn;
 
@@ -47,7 +54,7 @@ public class Main {
 		}
 		for (int index = languagesStartColumn; index < languagesEndColumn; index++) {
 			String name = row.getCell(index).getStringCellValue();
-			formatIos(name, iosKeysColumn, index);
+			formatIos(name, IOS_KEY_COLUMN, index);
 		}
 	}
 
@@ -63,8 +70,8 @@ public class Main {
 		return cell.getStringCellValue();
 	}
 
-	public Map<String, String> mapLanguage(int keyColumn, int languageColumn) {
-		Map<String, String> map = new TreeMap<>();
+	public List<Localisation> mapLanguage(int keyColumn, int languageColumn) {
+		List<Localisation> entries = new ArrayList<>(25);
 		String key = null;
 		int rowIndex = 1;
 		do {
@@ -72,11 +79,24 @@ public class Main {
 			if (key == null) {
 				continue;
 			}
+			String description = getValue(rowIndex, DESCRIPTION_COLUMN);
+			String comment = getValue(rowIndex, COMMENT_COLUMN);
 			String value = getValue(rowIndex, languageColumn);
-			map.put(key, value);
+			
+			Localisation loco = new Localisation(key, value, comment, description);
+			
+			entries.add(loco);
 			rowIndex++;
 		} while (key != null);
-		return map;
+		
+		Collections.sort(entries, new Comparator<Localisation>() {
+			@Override
+			public int compare(Localisation o1, Localisation o2) {
+				return o1.getKey().compareTo(o2.getKey());
+			}
+		});
+		
+		return entries;
 	}
 
 	protected String dateTimeStamp() {
@@ -84,7 +104,7 @@ public class Main {
 	}
 
 	public void formatIos(String language, int keyColumn, int languageColumn) {
-		Map<String, String> map = mapLanguage(keyColumn, languageColumn);
+		List<Localisation> entries = mapLanguage(keyColumn, languageColumn);
 		try (BufferedWriter bw = new BufferedWriter(new FileWriter(new File(language + ".strings")))) {
 			bw.write("/*");
 			bw.newLine();
@@ -95,15 +115,55 @@ public class Main {
 			bw.write("*/");
 			bw.newLine();
 			bw.newLine();
-			for (Map.Entry<String, String> entry : map.entrySet()) {
-				String key = entry.getKey();
-				String value = entry.getValue();
+			for (Localisation loco : entries) {
+				String description = loco.getDescription();
+				String comment = loco.getComment();
+				
+				if (description != null) {
+					bw.write("// " + description);
+					bw.newLine();
+				}
+				
+				String key = loco.getKey();
+				String value = loco.getValue();
 				bw.write("\"" + key + "\" = \"" + value + "\";");
 				bw.newLine();
 			}
 		} catch (IOException exp) {
 			exp.printStackTrace();
 		}
+	}
+	
+	public class Localisation {
+		private String key;
+		private String value;
+		private String comment;
+		private String description;
+
+		public Localisation(String key, String value, String comment, String description) {
+			this.key = key;
+			this.value = value;
+			this.comment = comment;
+			this.description = description;
+		}
+
+		public String getKey() {
+			return key;
+		}
+
+		public String getValue() {
+			return value;
+		}
+
+		public String getComment() {
+			return comment;
+		}
+
+		public String getDescription() {
+			return description;
+		}
+		
+		
 	}
 
 }
