@@ -126,8 +126,8 @@ public class Main {
 					bw.newLine();
 				}
 
-				String key = loco.getValue();
-				String value = loco.getIosKey();
+				String value = loco.getValue();
+				String key = loco.getIosKey();
 				bw.write("\"" + key + "\" = \"" + value + "\";");
 				bw.newLine();
 			}
